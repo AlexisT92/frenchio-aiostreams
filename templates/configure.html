@@ -445,7 +445,8 @@
                 <span class="title-text">Frenchio</span>
                 <span class="version-badge" id="versionBadge"></span>
             </h1>
-            <div class="subtitle">Streamer depuis UNIT3D, Sharewood, YGG, ABN, La-Cale & C411 via AllDebrid, TorBox,
+            <div class="subtitle">Streamer depuis UNIT3D, Sharewood, YGG, ABN, La-Cale, C411 & Torr9 via AllDebrid,
+                TorBox,
                 Debrid-Link ou
                 qBittorrent</div>
         </header>
@@ -564,50 +565,234 @@
                 <h2>🌐 Trackers Publics / Semi-Privés</h2>
             </div>
             <p class="help-text" style="margin-bottom: 20px;">
-                <strong>YGG est activé par défaut</strong>, avec ou sans passkey. Sans passkey, seuls les torrents
-                cachés sur vos services de debrid seront affichés.
+                <strong>YGG est activé par défaut</strong>, avec ou sans passkey. Cliquez sur un tracker pour le
+                configurer.
             </p>
 
-            <div class="form-group">
-                <label for="sharewoodPasskey">Passkey Sharewood</label>
-                <input type="text" id="sharewoodPasskey" placeholder="32 caractères">
-                <span class="help-text">Trouvable dans vos paramètres Sharewood.</span>
-            </div>
+            <style>
+                .provider-grid {
+                    display: grid;
+                    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+                    gap: 12px;
+                    margin-bottom: 16px;
+                }
 
-            <div class="form-group">
-                <label for="yggPasskey">Passkey YGG <span class="badge">Optionnel</span></label>
-                <input type="text" id="yggPasskey" placeholder="32 caractères">
-                <span class="help-text">
-                    <strong>YGG est actif par défaut !</strong> Sans passkey, seuls les torrents cachés sur
-                    AllDebrid/TorBox/Debrid-Link seront affichés.
-                    La passkey est nécessaire uniquement pour télécharger les fichiers .torrent avec qBittorrent.
-                </span>
-            </div>
+                .provider-card {
+                    background: var(--bg-secondary);
+                    border: 2px solid var(--border);
+                    border-radius: var(--radius);
+                    cursor: pointer;
+                    transition: var(--transition);
+                    overflow: hidden;
+                }
 
-            <div class="form-group">
-                <label for="abnUsername">Identifiant ABN (Abnormal)</label>
-                <input type="text" id="abnUsername" placeholder="Nom d'utilisateur">
-                <span class="help-text">Votre nom d'utilisateur sur <a href="https://abn.lol/" target="_blank">ABN</a>.
-                    ⚠️ <strong>ABN ralentit les recherches</strong> car il nécessite plus de processing.</span>
-            </div>
+                .provider-card:hover {
+                    border-color: var(--border-hover);
+                    box-shadow: var(--shadow-sm);
+                }
 
-            <div class="form-group">
-                <label for="abnPassword">Mot de passe ABN</label>
-                <input type="password" id="abnPassword" placeholder="Mot de passe">
-                <span class="help-text">Votre mot de passe ABN.</span>
-            </div>
+                .provider-card.active {
+                    border-color: var(--primary);
+                    background: linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(129, 140, 248, 0.08) 100%);
+                }
 
-            <div class="form-group">
-                <label for="lacalePasskey">Passkey La-Cale</label>
-                <input type="text" id="lacalePasskey" placeholder="Passkey">
-                <span class="help-text">Votre passkey <a href="https://la-cale.space"
-                        target="_blank">La-Cale</a>.</span>
-            </div>
+                [data-theme="dark"] .provider-card.active {
+                    background: linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(129, 140, 248, 0.1) 100%);
+                }
 
-            <div class="form-group">
-                <label for="c411Apikey">API Key C411</label>
-                <input type="text" id="c411Apikey" placeholder="API Key">
-                <span class="help-text">Votre API Key sur <a href="https://c411.org" target="_blank">C411</a>.</span>
+                .provider-header {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    padding: 14px 16px;
+                }
+
+                .provider-header .provider-name {
+                    font-weight: 600;
+                    font-size: 0.9375rem;
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                }
+
+                .provider-header .provider-dot {
+                    width: 8px;
+                    height: 8px;
+                    border-radius: 50%;
+                    background: var(--border);
+                    transition: var(--transition);
+                    flex-shrink: 0;
+                }
+
+                .provider-card.active .provider-dot {
+                    background: var(--success);
+                    box-shadow: 0 0 6px rgba(16, 185, 129, 0.4);
+                }
+
+                .provider-header .provider-chevron {
+                    font-size: 0.75rem;
+                    color: var(--text-muted);
+                    transition: transform 0.3s ease;
+                }
+
+                .provider-card.expanded .provider-chevron {
+                    transform: rotate(180deg);
+                }
+
+                .provider-body {
+                    max-height: 0;
+                    overflow: hidden;
+                    transition: max-height 0.35s ease, padding 0.35s ease;
+                    padding: 0 16px;
+                }
+
+                .provider-card.expanded .provider-body {
+                    max-height: 300px;
+                    padding: 0 16px 16px 16px;
+                }
+
+                .provider-body .form-group {
+                    margin-bottom: 12px;
+                }
+
+                .provider-body .form-group:last-child {
+                    margin-bottom: 0;
+                }
+
+                .provider-body label {
+                    font-size: 0.8125rem;
+                    margin-bottom: 6px;
+                }
+
+                .provider-badge {
+                    font-size: 0.6875rem;
+                    padding: 2px 6px;
+                    border-radius: 4px;
+                    background: var(--primary);
+                    color: white;
+                    font-weight: 600;
+                    letter-spacing: 0.3px;
+                }
+
+                .provider-badge.always-on {
+                    background: var(--success);
+                }
+            </style>
+
+            <div class="provider-grid">
+                <!-- YGG -->
+                <div class="provider-card active" id="providerYgg" onclick="toggleProvider('providerYgg')">
+                    <div class="provider-header">
+                        <span class="provider-name">
+                            <span class="provider-dot"></span>
+                            YGG <span class="provider-badge always-on">ACTIF</span>
+                        </span>
+                        <span class="provider-chevron">▼</span>
+                    </div>
+                    <div class="provider-body">
+                        <div class="form-group">
+                            <label for="yggPasskey">Passkey <span class="badge">Optionnel</span></label>
+                            <input type="text" id="yggPasskey" placeholder="32 caractères"
+                                onclick="event.stopPropagation()">
+                            <span class="help-text">Uniquement pour qBittorrent. Debrid fonctionne sans passkey.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sharewood -->
+                <div class="provider-card" id="providerSharewood" onclick="toggleProvider('providerSharewood')">
+                    <div class="provider-header">
+                        <span class="provider-name">
+                            <span class="provider-dot"></span>
+                            Sharewood
+                        </span>
+                        <span class="provider-chevron">▼</span>
+                    </div>
+                    <div class="provider-body">
+                        <div class="form-group">
+                            <label for="sharewoodPasskey">Passkey</label>
+                            <input type="text" id="sharewoodPasskey" placeholder="32 caractères"
+                                onclick="event.stopPropagation()">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ABN -->
+                <div class="provider-card" id="providerAbn" onclick="toggleProvider('providerAbn')">
+                    <div class="provider-header">
+                        <span class="provider-name">
+                            <span class="provider-dot"></span>
+                            ABN
+                        </span>
+                        <span class="provider-chevron">▼</span>
+                    </div>
+                    <div class="provider-body">
+                        <div class="form-group">
+                            <label for="abnUsername">Identifiant</label>
+                            <input type="text" id="abnUsername" placeholder="Nom d'utilisateur"
+                                onclick="event.stopPropagation()">
+                        </div>
+                        <div class="form-group">
+                            <label for="abnPassword">Mot de passe</label>
+                            <input type="password" id="abnPassword" placeholder="Mot de passe"
+                                onclick="event.stopPropagation()">
+                        </div>
+                        <span class="help-text">⚠️ ABN ralentit les recherches.</span>
+                    </div>
+                </div>
+
+                <!-- La-Cale -->
+                <div class="provider-card" id="providerLacale" onclick="toggleProvider('providerLacale')">
+                    <div class="provider-header">
+                        <span class="provider-name">
+                            <span class="provider-dot"></span>
+                            La-Cale
+                        </span>
+                        <span class="provider-chevron">▼</span>
+                    </div>
+                    <div class="provider-body">
+                        <div class="form-group">
+                            <label for="lacalePasskey">Passkey</label>
+                            <input type="text" id="lacalePasskey" placeholder="Passkey"
+                                onclick="event.stopPropagation()">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- C411 -->
+                <div class="provider-card" id="providerC411" onclick="toggleProvider('providerC411')">
+                    <div class="provider-header">
+                        <span class="provider-name">
+                            <span class="provider-dot"></span>
+                            C411
+                        </span>
+                        <span class="provider-chevron">▼</span>
+                    </div>
+                    <div class="provider-body">
+                        <div class="form-group">
+                            <label for="c411Apikey">API Key</label>
+                            <input type="text" id="c411Apikey" placeholder="API Key" onclick="event.stopPropagation()">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Torr9 -->
+                <div class="provider-card" id="providerTorr9" onclick="toggleProvider('providerTorr9')">
+                    <div class="provider-header">
+                        <span class="provider-name">
+                            <span class="provider-dot"></span>
+                            Torr9
+                        </span>
+                        <span class="provider-chevron">▼</span>
+                    </div>
+                    <div class="provider-body">
+                        <div class="form-group">
+                            <label for="torr9Passkey">Passkey</label>
+                            <input type="text" id="torr9Passkey" placeholder="Passkey"
+                                onclick="event.stopPropagation()">
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -691,6 +876,41 @@
             container.appendChild(div);
         }
 
+        function toggleProvider(cardId) {
+            const card = document.getElementById(cardId);
+            card.classList.toggle('expanded');
+        }
+
+        function updateProviderActiveStates() {
+            // Map: provider card id -> input ids to check
+            const providerMap = {
+                'providerYgg': ['yggPasskey'],
+                'providerSharewood': ['sharewoodPasskey'],
+                'providerAbn': ['abnUsername'],
+                'providerLacale': ['lacalePasskey'],
+                'providerC411': ['c411Apikey'],
+                'providerTorr9': ['torr9Passkey']
+            };
+            for (const [cardId, inputIds] of Object.entries(providerMap)) {
+                if (cardId === 'providerYgg') continue; // Always active
+                const card = document.getElementById(cardId);
+                const hasValue = inputIds.some(id => {
+                    const el = document.getElementById(id);
+                    return el && el.value.trim() !== '';
+                });
+                if (hasValue) {
+                    card.classList.add('active');
+                } else {
+                    card.classList.remove('active');
+                }
+            }
+        }
+
+        // Listen for input changes on provider fields
+        document.querySelectorAll('.provider-body input').forEach(input => {
+            input.addEventListener('input', updateProviderActiveStates);
+        });
+
         // Gestion des radio buttons pour le service de débridage
         function updateDebridFields() {
             const selectedService = document.querySelector('input[name="debridService"]:checked').value;
@@ -741,6 +961,17 @@
             document.getElementById('abnPassword').value = prefillConfig.abn_password || '';
             document.getElementById('lacalePasskey').value = prefillConfig.lacale_passkey || '';
             document.getElementById('c411Apikey').value = prefillConfig.c411_apikey || '';
+            document.getElementById('torr9Passkey').value = prefillConfig.torr9_passkey || '';
+
+            // Mettre à jour les états actifs des provider cards
+            updateProviderActiveStates();
+            // Ouvrir automatiquement les cards remplies
+            ['providerYgg', 'providerSharewood', 'providerAbn', 'providerLacale', 'providerC411', 'providerTorr9'].forEach(id => {
+                const card = document.getElementById(id);
+                if (card && card.classList.contains('active') && id !== 'providerYgg') {
+                    card.classList.add('expanded');
+                }
+            });
 
             // Filtre de taille
             if (prefillConfig.max_size !== undefined) {
@@ -838,6 +1069,7 @@
             const abnPassword = document.getElementById('abnPassword').value.trim();
             const lacalePasskey = document.getElementById('lacalePasskey').value.trim();
             const c411Apikey = document.getElementById('c411Apikey').value.trim();
+            const torr9Passkey = document.getElementById('torr9Passkey').value.trim();
             const maxSize = parseInt(document.getElementById('maxSize').value) || 0;
 
             if (!tmdbKey) {
@@ -887,6 +1119,7 @@
                 abn_password: abnPassword,
                 lacale_passkey: lacalePasskey,
                 c411_apikey: c411Apikey,
+                torr9_passkey: torr9Passkey,
                 max_size: maxSize,
                 qbittorrent: hasQbit ? {
                     host: qbitUrl,
