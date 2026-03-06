@@ -381,21 +381,20 @@ async def handle_stream(request):
         tasks.append(empty())
 
     # Tâche YGG (toujours active, passkey optionnelle)
-    logging.info("Starting YGG search (passkey: {})".format("yes" if config.get('ygg_passkey') else "no - cache only"))
-    # Passkey optionnelle : nécessaire seulement pour télécharger les .torrent (qBittorrent)
-    # Les torrents cachés sur debrid sont accessibles sans passkey
-    ygg_service = YggService(config.get('ygg_passkey'))
+    # Tâche YGG (toujours active, passkey plus nécessaire)
+    ygg_service = YggService()
     
-    title = media_info.get('title') if media_info else ""
+    target_title = (media_info.get('title') or media_info.get('name')) if media_info else ""
+    original_title = (media_info.get('original_title') or media_info.get('original_name')) if media_info else ""
     year = ""
     if media_info:
         date = media_info.get('release_date') or media_info.get('first_air_date')
         year = date.split('-')[0] if date else ""
 
     if stream_type == 'movie':
-        tasks.append(ygg_service.search_movie(title, year, tmdb_id=tmdb_id))
+        tasks.append(ygg_service.search_movie(target_title, year, original_title=original_title))
     elif stream_type == 'series':
-        tasks.append(ygg_service.search_series(title, season, episode, tmdb_id=tmdb_id))
+        tasks.append(ygg_service.search_series(target_title, season, episode, original_title=original_title))
 
     # Tâche ABN
     abn_service = None
@@ -422,20 +421,14 @@ async def handle_stream(request):
         tasks.append(empty())
 
     # Tâche LaCale
-    if config.get('lacale_passkey'):
+    lacale_key = config.get('lacale_apikey') or config.get('lacale_passkey')
+    if lacale_key:
         logging.info("Starting LaCale search")
-        lacale_service = LaCaleService(config.get('lacale_passkey'))
-        
-        title = media_info.get('title') or media_info.get('name') if media_info else ""
-        year = ""
-        if media_info:
-            date = media_info.get('release_date') or media_info.get('first_air_date')
-            year = date.split('-')[0] if date else ""
-
+        lacale_service = LaCaleService(lacale_key)
         if stream_type == 'movie':
-            tasks.append(lacale_service.search_movie(title, year))
+            tasks.append(lacale_service.search_movie(target_title, year, tmdb_id=tmdb_id, imdb_id=imdb_id))
         elif stream_type == 'series':
-            tasks.append(lacale_service.search_series(title, season, episode))
+            tasks.append(lacale_service.search_series(target_title, season, episode, tmdb_id=tmdb_id, imdb_id=imdb_id))
     else:
         async def empty(): return []
         tasks.append(empty())

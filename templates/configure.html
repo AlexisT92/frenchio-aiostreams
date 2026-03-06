@@ -681,21 +681,12 @@
 
             <div class="provider-grid">
                 <!-- YGG -->
-                <div class="provider-card active" id="providerYgg" onclick="toggleProvider('providerYgg')">
+                <div class="provider-card active" id="providerYgg">
                     <div class="provider-header">
                         <span class="provider-name">
                             <span class="provider-dot"></span>
                             YGG <span class="provider-badge always-on">ACTIF</span>
                         </span>
-                        <span class="provider-chevron">▼</span>
-                    </div>
-                    <div class="provider-body">
-                        <div class="form-group">
-                            <label for="yggPasskey">Passkey <span class="badge">Optionnel</span></label>
-                            <input type="text" id="yggPasskey" placeholder="32 caractères"
-                                onclick="event.stopPropagation()">
-                            <span class="help-text">Uniquement pour qBittorrent. Debrid fonctionne sans passkey.</span>
-                        </div>
                     </div>
                 </div>
 
@@ -752,8 +743,8 @@
                     </div>
                     <div class="provider-body">
                         <div class="form-group">
-                            <label for="lacalePasskey">Passkey</label>
-                            <input type="text" id="lacalePasskey" placeholder="Passkey"
+                            <label for="lacaleApikey">Clé API</label>
+                            <input type="text" id="lacaleApikey" placeholder="Clé API"
                                 onclick="event.stopPropagation()">
                         </div>
                     </div>
@@ -770,8 +761,8 @@
                     </div>
                     <div class="provider-body">
                         <div class="form-group">
-                            <label for="c411Apikey">API Key</label>
-                            <input type="text" id="c411Apikey" placeholder="API Key" onclick="event.stopPropagation()">
+                            <label for="c411Apikey">Clé API</label>
+                            <input type="text" id="c411Apikey" placeholder="Clé API" onclick="event.stopPropagation()">
                         </div>
                     </div>
                 </div>
@@ -887,7 +878,7 @@
                 'providerYgg': ['yggPasskey'],
                 'providerSharewood': ['sharewoodPasskey'],
                 'providerAbn': ['abnUsername'],
-                'providerLacale': ['lacalePasskey'],
+                'providerLacale': ['lacaleApikey'],
                 'providerC411': ['c411Apikey'],
                 'providerTorr9': ['torr9Passkey']
             };
@@ -956,10 +947,10 @@
             }
 
             document.getElementById('sharewoodPasskey').value = prefillConfig.sharewood_passkey || '';
-            document.getElementById('yggPasskey').value = prefillConfig.ygg_passkey || '';
+            // YGG passkey removed
             document.getElementById('abnUsername').value = prefillConfig.abn_username || '';
             document.getElementById('abnPassword').value = prefillConfig.abn_password || '';
-            document.getElementById('lacalePasskey').value = prefillConfig.lacale_passkey || '';
+            document.getElementById('lacaleApikey').value = prefillConfig.lacale_apikey || '';
             document.getElementById('c411Apikey').value = prefillConfig.c411_apikey || '';
             document.getElementById('torr9Passkey').value = prefillConfig.torr9_passkey || '';
 
@@ -1064,10 +1055,10 @@
             const hasQbit = qbitUrl && qbitPublicUrl;
 
             const sharewoodPasskey = document.getElementById('sharewoodPasskey').value.trim();
-            const yggPasskey = document.getElementById('yggPasskey').value.trim();
+            // YGG est toujours inclus sans passkey
             const abnUsername = document.getElementById('abnUsername').value.trim();
             const abnPassword = document.getElementById('abnPassword').value.trim();
-            const lacalePasskey = document.getElementById('lacalePasskey').value.trim();
+            const lacaleApikey = document.getElementById('lacaleApikey').value.trim();
             const c411Apikey = document.getElementById('c411Apikey').value.trim();
             const torr9Passkey = document.getElementById('torr9Passkey').value.trim();
             const maxSize = parseInt(document.getElementById('maxSize').value) || 0;
@@ -1102,8 +1093,8 @@
 
             // YGG est toujours actif, pas besoin de vérifier
             // Les utilisateurs peuvent utiliser YGG sans passkey avec les services de debrid
-            if (trackers.length === 0 && !sharewoodPasskey && !yggPasskey && !abnUsername && !alldebridKey && !torboxKey && !debridlinkKey) {
-                alert("Attention : Sans tracker configuré ni service de debrid, YGG ne retournera aucun résultat. Configurez au moins un service de debrid (AllDebrid/TorBox/Debrid-Link) ou ajoutez une passkey YGG pour qBittorrent.");
+            if (trackers.length === 0 && !sharewoodPasskey && !abnUsername && !alldebridKey && !torboxKey && !debridlinkKey) {
+                alert("Attention : Sans tracker configuré ni service de debrid, Frenchio ne retournera que les résultats publics de YGG.");
                 return;
             }
 
@@ -1114,10 +1105,9 @@
                 debridlink_key: debridlinkKey,
                 trackers: trackers,
                 sharewood_passkey: sharewoodPasskey,
-                ygg_passkey: yggPasskey,
                 abn_username: abnUsername,
                 abn_password: abnPassword,
-                lacale_passkey: lacalePasskey,
+                lacale_apikey: lacaleApikey,
                 c411_apikey: c411Apikey,
                 torr9_passkey: torr9Passkey,
                 max_size: maxSize,

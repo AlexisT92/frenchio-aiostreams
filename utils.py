@@ -68,51 +68,41 @@ def check_season_episode(name, target_season, target_episode):
     name_upper = name.upper()
     
     # Extraction SxxExx
-    # Regex stricte : S01E01, S1E1, 1x01
-    se_pattern = re.compile(r'(?:S|SAISON|SEASON)[ ._-]?(\d{1,2})(?:[ ._-]?E(\d{1,2}))?', re.IGNORECASE)
+    # Regex améliorée pour capturer les ranges d'épisodes (ex: S05E02-E03 ou S05E02E03)
+    se_pattern = re.compile(r'(?:S|SAISON|SEASON)[ ._-]?(\d{1,2})(?:[ ._-]?E(\d{1,2}))(?:[ ._-]?E?(\d{1,2}))?', re.IGNORECASE)
     matches = se_pattern.findall(name_upper)
     
     # Si aucun pattern Sxx trouvé, on essaie 1x01
     if not matches:
         x_pattern = re.compile(r'(\d{1,2})x(\d{1,2})', re.IGNORECASE)
-        matches = [(m[0], m[1]) for m in x_pattern.findall(name_upper)]
-
-    # Si toujours rien, c'est peut-être un film ou un nommage exotique, on laisse passer dans le doute ?
-    # Non, pour une série, si on cherche S05, il faut S05.
+        matches = [(m[0], m[1], None) for m in x_pattern.findall(name_upper)]
+        
+    # Si toujours rien, on cherche juste le pattern Saison sans épisode (Pack Saison)
     if not matches:
-        # Cas spécial : juste le chiffre "5" isolé ? Trop risqué.
-        # On accepte si "COMPLETE" ou "INTEGRALE" est présent ?
-        return True # On laisse passer par défaut pour ne pas trop filtrer
+        s_only_pattern = re.compile(r'(?:S|SAISON|SEASON)[ ._-]?(\d{1,2})', re.IGNORECASE)
+        matches = [(m, None, None) for m in s_only_pattern.findall(name_upper)]
 
-    for s, e in matches:
+    if not matches:
+        return False # Pour une série, si on ne trouve aucune info de saison/épisode, on rejette
+
+    for s, e_start, e_end in matches:
         try:
             season = int(s)
-            episode = int(e) if e else None
-            
-            # Vérification Saison
             if season != target_season:
-                continue # Ce n'est pas la bonne saison, on check le match suivant (ex: S01-S05)
-            
-            # Si bonne saison :
-            # Cas 1 : Pas d'épisode dans le nom (Pack Saison) -> OK
-            if episode is None:
+                continue
+                
+            # Si pas d'épisode dans le nom (Pack Saison) -> OK
+            if e_start is None:
                 return True
+                
+            start = int(e_start)
+            end = int(e_end) if e_end else start
             
-            # Cas 2 : Épisode présent -> Doit matcher (ou être un range E01-E05 ?)
-            # Pour l'instant match strict
-            if episode == target_episode:
+            # Vérification de l'épisode (dans le range)
+            if start <= target_episode <= end:
                 return True
-            else:
-                # Mauvais épisode (ex: cherche E07, trouve E03)
-                # Mais attention aux doubles épisodes S05E03-E04 !
-                # Ma regex actuelle ne capture que le premier E.
-                # Si le nom est S05E03E04, match = (5, 3). Si on veut 4, ça fail.
-                # C'est une limitation acceptable pour l'instant vs afficher n'importe quoi.
-                pass
                 
         except ValueError:
             continue
             
-    # Si on a trouvé des patterns SxxExx mais aucun ne correspond
-    # (Ex: trouvé S05E03 alors qu'on veut S05E07)
     return False

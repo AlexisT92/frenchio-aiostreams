@@ -1,111 +1,133 @@
 import aiohttp
 import logging
-import urllib.parse
+import asyncio
+import xml.etree.ElementTree as ET
 from utils import check_season_episode
 
 class LaCaleService:
     def __init__(self, passkey):
         self.passkey = passkey
-        self.base_url = "https://la-cale.space/api/external"
+        # Nouvel endpoint Torznab
+        self.base_url = "https://la-cale.space/api/external/torznab"
 
-    async def search(self, query):
+    async def search(self, params):
+        """
+        Recherche générique sur LaCale via Torznab
+        """
         if not self.passkey:
             return []
 
-        # URL encodée
-        encoded_query = urllib.parse.quote(query)
-        # Endpoint: /api/external?passkey=...&q=...
-        url = f"{self.base_url}?passkey={self.passkey}&q={encoded_query}"
+        # Ajouter l'apikey aux paramètres
+        params['apikey'] = self.passkey
         
-        # Log avec passkey masquée
-        log_url = url.replace(self.passkey, '***PASSKEY***')
-        logging.info(f"LaCale Request: {log_url}")
+        logging.info(f"LaCale Torznab Search: {params.get('q') or 'ID search'}")
 
         async with aiohttp.ClientSession(trust_env=True) as session:
             try:
-                async with session.get(url, timeout=20) as response:
+                async with session.get(self.base_url, params=params, timeout=20) as response:
                     if response.status == 200:
-                        data = await response.json()
-                        # L'API retourne une liste d'objets directement selon l'OpenAPI spec
-                        # schema: type: array, items: ExternalResult
-                        results = data if isinstance(data, list) else []
-                        
-                        logging.info(f"LaCale found {len(results)} results for '{query}'")
-                        
-                        normalized = []
-                        for res in results:
-                            # Mapping des champs LaCale vers format interne
-                            # Spec API:
-                            # title, size (bytes), link (download), infoHash, category, seeders, leechers
-                            
-                            # La spec dit que 'link' appends /api/torrents/download/{{infoHash}} to app URL
-                            # Donc c'est un lien direct de téléchargement
-                            
-                            item = {
-                                "name": res.get("title"),
-                                "size": res.get("size", 0),
-                                "tracker_name": "LaCale",
-                                "info_hash": res.get("infoHash"),
-                                "magnet": None, # On n'a pas de magnet direct, mais infoHash suffisant pour debrid
-                                "link": res.get("link"), # Lien de téléchargement .torrent
-                                "source": "lacale",
-                                "seeders": res.get("seeders"),
-                                "leechers": res.get("leechers")
-                            }
-                            normalized.append(item)
-                        return normalized
+                        text = await response.text()
+                        return self._parse_xml(text)
                     elif response.status in [401, 403]:
-                        logging.error(f"LaCale Unauthorized/Forbidden. Check passkey.")
+                        masked = self.passkey[:4] + "..." + self.passkey[-4:] if len(self.passkey) > 8 else "***"
+                        logging.error(f"LaCale Unauthorized/Forbidden (401/403). Using key: {masked}. Please update your API KEY in /configure.")
                     else:
                         logging.warning(f"LaCale Error {response.status}")
-                        text = await response.text()
-                        logging.warning(f"LaCale Body: {text[:200]}")
             except Exception as e:
                 logging.error(f"LaCale Exception: {e}")
         return []
 
-    async def search_movie(self, title, year):
-        # Recherche combinée pour maximiser les chances
-        queries = [f"{title} {year}", title]
-        results = []
-        
-        seen_hashes = set()
-        
-        for q in queries:
-            res_list = await self.search(q)
-            for res in res_list:
-                if res['info_hash'] not in seen_hashes:
-                    results.append(res)
-                    seen_hashes.add(res['info_hash'])
-            
-        return results
+    def _parse_xml(self, xml_text):
+        """Parse Torznab XML response from LaCale"""
+        try:
+            root = ET.fromstring(xml_text)
+        except ET.ParseError as e:
+            logging.error(f"LaCale XML Parse Error: {e}")
+            return []
 
-    async def search_series(self, title, season, episode):
-        results = []
-        seen_hashes = set()
-        
-        # SxxExx
-        if season is not None and episode is not None:
-            s_str = f"S{int(season):02d}"
-            e_str = f"E{int(episode):02d}"
-            q = f"{title} {s_str}{e_str}"
+        # Torznab namespace
+        ns = {'torznab': 'http://torznab.com/schemas/2015/feed'}
+
+        items = root.findall('.//item')
+        logging.info(f"LaCale found {len(items)} results")
+
+        normalized = []
+        for item in items:
+            title = item.findtext('title', '')
+            size_text = item.findtext('size', '0')
             
-            res_list = await self.search(q)
-            for res in res_list:
-                # Filtrage supplémentaire côté client si besoin, mais la recherche est assez précise
-                if res['info_hash'] not in seen_hashes:
-                    results.append(res)
-                    seen_hashes.add(res['info_hash'])
+            # Extract basic links
+            link = item.findtext('link', '')
+            enclosure = item.find('enclosure')
+            download_link = enclosure.get('url', '') if enclosure is not None else link
+
+            # Torznab attributes
+            info_hash = None
+            seeders = 0
+            leechers = 0
+
+            for attr in item.findall('torznab:attr', ns):
+                name = attr.get('name')
+                value = attr.get('value')
+                if name == 'infohash':
+                    info_hash = value.lower() if value else None
+                elif name == 'seeders':
+                    seeders = int(value) if value else 0
+                elif name == 'peers':
+                    leechers = int(value) if value else 0
+
+            normalized.append({
+                "name": title,
+                "size": int(size_text) if size_text else 0,
+                "tracker_name": "LaCale",
+                "info_hash": info_hash,
+                "magnet": None, # Torznab usually doesn't give magnets directly
+                "link": download_link,
+                "source": "lacale",
+                "seeders": seeders,
+                "leechers": leechers
+            })
+
+        return normalized
+
+    async def search_movie(self, title, year, tmdb_id=None, imdb_id=None):
+        """Recherche de films sur LaCale par ID ou Titre"""
+        params = {"t": "movie"}
         
-        # Saison Pack (Sxx)
+        # Priorité aux IDs pour la précision
+        if tmdb_id:
+            params["tmdbid"] = tmdb_id
+        elif imdb_id:
+            # Enlever le 'tt' si présent
+            params["imdbid"] = imdb_id.replace('tt', '')
+        else:
+            params["q"] = f"{title} {year}".strip()
+            
+        return await self.search(params)
+
+    async def search_series(self, title, season, episode, tmdb_id=None, imdb_id=None):
+        """Recherche de séries sur LaCale par ID et filtrage client"""
+        params = {"t": "tvsearch"}
+        
+        # On cherche d'abord tout le contenu lié à l'ID
+        if tmdb_id:
+            params["tmdbid"] = tmdb_id
+        elif imdb_id:
+            params["imdbid"] = imdb_id.replace('tt', '')
+        else:
+            params["q"] = title
+
         if season is not None:
-             s_str = f"S{int(season):02d}"
-             q = f"{title} {s_str}"
-             
-             res_list = await self.search(q)
-             for res in res_list:
-                if res['info_hash'] not in seen_hashes:
-                    results.append(res)
-                    seen_hashes.add(res['info_hash'])
+            params["season"] = season
+        if episode is not None:
+            params["ep"] = episode
 
-        return results
+        all_results = await self.search(params)
+        
+        # Filtrage précis par saison/épisode (SxxExx ou Pack)
+        if season is not None:
+            filtered = [r for r in all_results if check_season_episode(r.get('name', ''), season, episode)]
+            logging.info(f"LaCale: {len(filtered)} results after season/episode filtering")
+            return filtered
+            
+        return all_results
