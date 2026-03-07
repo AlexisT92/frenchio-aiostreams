@@ -39,7 +39,7 @@ from services.lacale import LaCaleService
 from services.c411 import C411Service
 from services.torr9 import Torr9Service
 from services.qbittorrent import QBittorrentService
-from utils import format_size, parse_torrent_name, check_season_episode
+from utils import format_size, parse_torrent_name, check_season_episode, check_title_match
 
 # Configuration du logging
 logging.basicConfig(
@@ -439,9 +439,9 @@ async def handle_stream(request):
         c411_service = C411Service(config.get('c411_apikey'))
         
         if stream_type == 'movie':
-            tasks.append(c411_service.search_movie(title, year, imdb_id=imdb_id, tmdb_id=tmdb_id))
+            tasks.append(c411_service.search_movie(target_title, year, imdb_id=imdb_id, tmdb_id=tmdb_id))
         elif stream_type == 'series':
-            tasks.append(c411_service.search_series(title, season, episode, imdb_id=imdb_id, tmdb_id=tmdb_id))
+            tasks.append(c411_service.search_series(target_title, season, episode, imdb_id=imdb_id, tmdb_id=tmdb_id))
     else:
         async def empty(): return []
         tasks.append(empty())
@@ -452,9 +452,9 @@ async def handle_stream(request):
         torr9_service = Torr9Service(config.get('torr9_passkey'))
         
         if stream_type == 'movie':
-            tasks.append(torr9_service.search_movie(title, year, imdb_id=imdb_id, tmdb_id=tmdb_id))
+            tasks.append(torr9_service.search_movie(target_title, year, imdb_id=imdb_id, tmdb_id=tmdb_id))
         elif stream_type == 'series':
-            tasks.append(torr9_service.search_series(title, season, episode, imdb_id=imdb_id, tmdb_id=tmdb_id))
+            tasks.append(torr9_service.search_series(target_title, season, episode, imdb_id=imdb_id, tmdb_id=tmdb_id))
     else:
         async def empty(): return []
         tasks.append(empty())
@@ -518,6 +518,24 @@ async def handle_stream(request):
             # if (not res_tmdb or str(res_tmdb) == "0") and (not res_imdb or str(res_imdb) == "0"):
             #      # Filtrage par titre si nécessaire
             #      pass
+
+        # Filtrage par titre et année (Trackers sans vérification ID stricte)
+        if stream_type in ('movie', 'series'):
+            res_tmdb = t.get('tmdb_id') or t.get('tmdb')
+            res_imdb = t.get('imdb_id') or t.get('imdb')
+            
+            needs_title_check = True
+            if res_tmdb and str(res_tmdb) != "0" and tmdb_id and str(res_tmdb) == str(tmdb_id):
+                needs_title_check = False
+            elif res_imdb and str(res_imdb) != "0" and imdb_id:
+                clean_res = str(res_imdb).replace('tt', '')
+                clean_req = str(imdb_id).replace('tt', '')
+                if clean_res == clean_req:
+                    needs_title_check = False
+                    
+            if needs_title_check:
+                if not check_title_match(t.get('name', ''), target_title, original_title, year=year, is_movie=(stream_type == 'movie')):
+                    continue
 
         # Filtrage Série (SxxExx)
         # Si c'est une série, on vérifie que le titre correspond à la saison/épisode demandé

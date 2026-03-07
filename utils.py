@@ -1,4 +1,59 @@
 import re
+import unicodedata
+
+def normalize_title(title):
+    if not title:
+        return ""
+    # Remove accents
+    title = unicodedata.normalize('NFD', title).encode('ascii', 'ignore').decode('utf-8')
+    # Remove punctuation and special characters, replace with space
+    title = re.sub(r'[^\w\s]', ' ', title)
+    # lowercase and normalize spaces
+    return " ".join(title.lower().split())
+
+def check_title_match(torrent_name, title_fr, title_en, year=None, is_movie=False):
+    """
+    Vérifie si le titre français ou anglais est présent dans le nom du torrent.
+    Pour les films, vérifie aussi l'année.
+    """
+    if not title_fr and not title_en:
+        return True
+        
+    norm_torrent = normalize_title(torrent_name)
+    norm_fr = normalize_title(title_fr)
+    norm_en = normalize_title(title_en)
+    
+    title_match = False
+    
+    if norm_fr:
+        pattern_fr = r'\b' + re.escape(norm_fr) + r'\b'
+        if re.search(pattern_fr, norm_torrent):
+            title_match = True
+            
+    if not title_match and norm_en:
+        pattern_en = r'\b' + re.escape(norm_en) + r'\b'
+        if re.search(pattern_en, norm_torrent):
+            title_match = True
+            
+    if not title_match:
+        if norm_fr and norm_fr in norm_torrent:
+            title_match = True
+        elif norm_en and norm_en in norm_torrent:
+            title_match = True
+            
+    if not title_match:
+        return False
+        
+    if is_movie and year:
+        try:
+            y = int(year)
+            if str(y) not in norm_torrent and str(y-1) not in norm_torrent and str(y+1) not in norm_torrent:
+                return False
+        except ValueError:
+            if str(year) not in norm_torrent:
+                return False
+                
+    return True
 
 def format_size(size_bytes):
     """Formate une taille en octets vers une chaine lisible (Go, Mo)"""
@@ -106,3 +161,4 @@ def check_season_episode(name, target_season, target_episode):
             continue
             
     return False
+
