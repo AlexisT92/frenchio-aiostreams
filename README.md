@@ -180,7 +180,7 @@ Un exemple `docker-compose.traefik.example.yml` est fourni :
 ```bash
 # 1. Copiez et personnalisez
 cp docker-compose.traefik.example.yml docker-compose.yml
-# Éditez et remplacez "frenchio.aymene.tech" par votre domaine
+# Éditez et remplacez par votre domaine
 
 # 2. Lancez
 docker-compose up -d
