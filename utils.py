@@ -124,7 +124,7 @@ def check_season_episode(name, target_season, target_episode):
     
     # Extraction SxxExx
     # Regex améliorée pour capturer les ranges d'épisodes (ex: S05E02-E03 ou S05E02E03)
-    se_pattern = re.compile(r'(?:S|SAISON|SEASON)[ ._-]?(\d{1,2})(?:[ ._-]?E(\d{1,2}))(?:[ ._-]?E?(\d{1,2}))?', re.IGNORECASE)
+    se_pattern = re.compile(r'(?:S|SAISON|SEASON)[ ._-]?(\d{1,2})(?:[ ._-]?E(\d{1,2}))(?:(?:[ ._-]*(?:E|-|~)[ ._-]*)(\d{1,2}))?', re.IGNORECASE)
     matches = se_pattern.findall(name_upper)
     
     # Si aucun pattern Sxx trouvé, on essaie 1x01
