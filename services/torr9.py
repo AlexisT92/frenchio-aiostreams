@@ -7,7 +7,7 @@ from utils import check_season_episode
 class Torr9Service:
     def __init__(self, passkey):
         self.passkey = passkey
-        self.base_url = "https://api.torr9.xyz/api/v1/torznab"
+        self.base_url = "https://api.torr9.net/api/v1/torznab"
 
     async def search(self, params):
         if not self.passkey:
