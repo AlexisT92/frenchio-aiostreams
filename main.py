@@ -718,13 +718,14 @@ async def handle_stream(request):
             "name": f"Frenchio{source_prefix}",
             "title": title,
             "url": resolve_url,
+            "filename": torrent.get('name', ''),
             "size": torrent.get('size', 0),
             "quality": meta.get('quality', ''),
             "codec": meta.get('codec', ''),
             "release_type": meta.get('release_type', ''),
             "language": meta.get('language', '')
         })
-    
+
     # 4b. Streams qBittorrent (non cachés, si configuré)
     # Si on a des torrents cachés, on n'affiche pas les non-cachés
     if qbit_service and uncached_torrents:
@@ -788,6 +789,7 @@ async def handle_stream(request):
                     "name": f"Frenchio {source_prefix}",
                     "title": title,
                     "url": resolve_url,
+                    "filename": torrent.get('name', ''),
                     "size": torrent.get('size', 0),
                     "quality": meta.get('quality', ''),
                     "codec": meta.get('codec', ''),
