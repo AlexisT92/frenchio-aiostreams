@@ -692,13 +692,13 @@ async def handle_stream(request):
         else:
             clean_name = raw_tracker
 
-        source_prefix = "\n🌲 Sharewood" if torrent.get('source') == 'sharewood' else \
-                       "\n🐝 YGG" if torrent.get('source') == 'ygg' else \
-                       "\n🎬 ABN" if torrent.get('source') == 'abn' else \
-                       "\n⚓ LaCale" if torrent.get('source') == 'lacale' else \
-                       "\n📡 C411" if torrent.get('source') == 'c411' else \
-                       "\n🔥 Torr9" if torrent.get('source') == 'torr9' else \
-                       f"\n🌐 {clean_name}"
+        source_prefix = "\n🔍 Sharewood" if torrent.get('source') == 'sharewood' else \
+                       "\n🔍 YGG" if torrent.get('source') == 'ygg' else \
+                       "\n🔍 ABN" if torrent.get('source') == 'abn' else \
+                       "\n🔍 LaCale" if torrent.get('source') == 'lacale' else \
+                       "\n🔍 C411" if torrent.get('source') == 'c411' else \
+                       "\n🔍 Torr9" if torrent.get('source') == 'torr9' else \
+                       f"\n🔍 {clean_name}"
         
         size_str = format_size(torrent.get('size', 0))
         meta = parse_torrent_name(torrent.get('name', ''))
@@ -715,15 +715,15 @@ async def handle_stream(request):
             resolve_url += "?type=movie"
 
         streams.append({
-            "name": f"Frenchio{source_prefix}",
+            "name": f"Frenchio | ⚡ {debrid_provider.capitalize()}{source_prefix}",
             "title": title,
             "url": resolve_url,
-            "filename": torrent.get('name', ''),
-            "size": torrent.get('size', 0),
-            "quality": meta.get('quality', ''),
-            "codec": meta.get('codec', ''),
-            "release_type": meta.get('release_type', ''),
-            "language": meta.get('language', '')
+            "infoHash": clean_hash,
+            "behaviorHints": {
+                "filename": torrent.get('name', ''),
+                "videoSize": torrent.get('size', 0),
+                "bingeGroup": f"frenchio-{clean_hash}"
+            },
         })
 
     # 4b. Streams qBittorrent (non cachés, si configuré)
@@ -760,13 +760,13 @@ async def handle_stream(request):
                 else:
                     clean_name = raw_tracker
 
-                source_prefix = "🌲 Sharewood" if torrent.get('source') == 'sharewood' else \
-                               "🐝 YGG" if torrent.get('source') == 'ygg' else \
-                               "🎬 ABN" if torrent.get('source') == 'abn' else \
-                               "⚓ LaCale" if torrent.get('source') == 'lacale' else \
-                               "📡 C411" if torrent.get('source') == 'c411' else \
-                               "🔥 Torr9" if torrent.get('source') == 'torr9' else \
-                               f"🌐 {clean_name}"
+                source_prefix = "🔍 Sharewood" if torrent.get('source') == 'sharewood' else \
+                               "🔍 YGG" if torrent.get('source') == 'ygg' else \
+                               "🔍 ABN" if torrent.get('source') == 'abn' else \
+                               "🔍 LaCale" if torrent.get('source') == 'lacale' else \
+                               "🔍 C411" if torrent.get('source') == 'c411' else \
+                               "🔍 Torr9" if torrent.get('source') == 'torr9' else \
+                               f"🔍 {clean_name}"
                 
                 size_str = format_size(torrent.get('size', 0))
                 meta = parse_torrent_name(torrent.get('name', ''))
@@ -786,15 +786,15 @@ async def handle_stream(request):
                     resolve_url += "&type=movie"
 
                 streams.append({
-                    "name": f"Frenchio {source_prefix}",
+                    "name": f"Frenchio | 📥 qBittorrent\n{source_prefix}",
                     "title": title,
                     "url": resolve_url,
-                    "filename": torrent.get('name', ''),
-                    "size": torrent.get('size', 0),
-                    "quality": meta.get('quality', ''),
-                    "codec": meta.get('codec', ''),
-                    "release_type": meta.get('release_type', ''),
-                    "language": meta.get('language', '')
+                    "infoHash": clean_hash,
+                    "behaviorHints": {
+                        "filename": torrent.get('name', ''),
+                        "videoSize": torrent.get('size', 0),
+                        "bingeGroup": f"frenchio-{clean_hash}"
+                    },
                 })
                 qbit_added += 1
             
