@@ -39,7 +39,6 @@ from services.abn import ABNService
 from services.lacale import LaCaleService
 from services.c411 import C411Service
 from services.torr9 import Torr9Service
-from services.qbittorrent import QBittorrentService
 from utils import format_size, parse_torrent_name, check_season_episode, check_title_match, is_video_file
 
 # Configuration du logging
@@ -69,11 +68,9 @@ STREMIO_ADDONS_CONFIG = {
 }
 
 # Configuration des fonctionnalités
-QBITTORRENT_ENABLE = os.getenv('QBITTORRENT_ENABLE', 'true').lower() in ('true', '1', 'yes')
 MANIFEST_TITLE_SUFFIX = os.getenv('MANIFEST_TITLE_SUFFIX', '')
 MANIFEST_BLURB = os.getenv('MANIFEST_BLURB', '')
 
-logging.info(f"qBittorrent enabled: {QBITTORRENT_ENABLE}")
 if MANIFEST_TITLE_SUFFIX:
     logging.info(f"Manifest title suffix: {MANIFEST_TITLE_SUFFIX}")
 if MANIFEST_BLURB:
@@ -135,10 +132,6 @@ async def handle_configure(request):
         # On cherche une balise script ou on l'ajoute
         # Le plus simple : remplacer une variable placeholder
         content = content.replace('const prefillConfig = {};', f'const prefillConfig = {prefill_data};')
-        
-        # Injection de la variable QBITTORRENT_ENABLE
-        qbit_enabled_js = 'true' if QBITTORRENT_ENABLE else 'false'
-        content = content.replace('const qbittorrentEnabled = true;', f'const qbittorrentEnabled = {qbit_enabled_js};')
         
         # Injection du blurb personnalisé (échappé pour JavaScript)
         blurb_escaped = json.dumps(MANIFEST_BLURB) if MANIFEST_BLURB else '""'
@@ -288,35 +281,9 @@ async def handle_stream(request):
         realdebrid_service = RealDebridService(config['realdebrid_key'])
         logging.info("Real-Debrid service initialized")
     
+    # Vérifier qu'au moins un service de débriding est configuré
     if not alldebrid_service and not torbox_service and not debridlink_service and not realdebrid_service:
-        logging.info("No debrid service configured, using qBittorrent fallback")
-    
-    # qBittorrent optionnel
-    qbit_service = None
-    if QBITTORRENT_ENABLE and config.get('qbittorrent'):
-        qbit_config = config['qbittorrent']
-        if qbit_config.get('host') and qbit_config.get('public_url'):
-            qbit_service = QBittorrentService(
-                host=qbit_config['host'],
-                username=qbit_config.get('username', ''),
-                password=qbit_config.get('password', ''),
-                public_url_base=qbit_config['public_url']
-            )
-            logging.info("qBittorrent service initialized")
-            
-            # Test de connexion (synchrone avec la nouvelle librairie)
-            try:
-                qbit_service.test_connection()
-            except Exception as e:
-                logging.error(f"qBittorrent test failed: {e}")
-        else:
-            logging.warning("qBittorrent config incomplete, skipping")
-    elif not QBITTORRENT_ENABLE:
-        logging.info("qBittorrent disabled by QBITTORRENT_ENABLE environment variable")
-    
-    # Vérifier qu'au moins un service est configuré
-    if not alldebrid_service and not torbox_service and not debridlink_service and not realdebrid_service and not qbit_service:
-        logging.error("No debrid or torrent client configured!")
+        logging.error("No debrid service configured!")
         return web.json_response({"streams": []})
     
     unit3d_results = []
@@ -726,80 +693,6 @@ async def handle_stream(request):
             },
         })
 
-    # 4b. Streams qBittorrent (non cachés, si configuré)
-    # Si on a des torrents cachés, on n'affiche pas les non-cachés
-    if qbit_service and uncached_torrents:
-        # Filtrer les torrents YGG sans passkey (ne peuvent pas être téléchargés)
-        has_ygg_passkey = config.get('ygg_passkey') and config.get('ygg_passkey').strip()
-        if not has_ygg_passkey:
-            before_filter = len(uncached_torrents)
-            uncached_torrents = [(t, h) for t, h in uncached_torrents if t.get('source') != 'ygg']
-            filtered = before_filter - len(uncached_torrents)
-            if filtered > 0:
-                logging.info(f"qBittorrent: Filtered {filtered} YGG torrents (no passkey for download)")
-        
-        if cached_torrents:
-            logging.info(f"qBittorrent: Skipping {len(uncached_torrents)} uncached torrents (cached results available)")
-        else:
-            limit = 10 if (alldebrid_service or torbox_service or debridlink_service or realdebrid_service) else 25  # Plus de résultats si pas de debrid
-            logging.info(f"qBittorrent: Processing {min(len(uncached_torrents), limit)} torrents (out of {len(uncached_torrents)} available)")
-            
-            qbit_added = 0
-            for torrent, clean_hash in uncached_torrents[:limit]:
-                download_link = torrent.get('link') or torrent.get('download_link')
-                if not download_link:
-                    logging.debug(f"Skipping torrent without download link: {torrent.get('name')}")
-                    continue
-                
-                # Extraire un nom propre pour les trackers UNIT3D
-                raw_tracker = torrent.get('tracker_name', 'UNIT3D')
-                if raw_tracker.startswith('http'):
-                    from urllib.parse import urlparse
-                    domain = urlparse(raw_tracker).hostname or raw_tracker
-                    clean_name = domain.split('.')[0].capitalize()
-                else:
-                    clean_name = raw_tracker
-
-                source_prefix = "🔍 Sharewood" if torrent.get('source') == 'sharewood' else \
-                               "🔍 YGG" if torrent.get('source') == 'ygg' else \
-                               "🔍 ABN" if torrent.get('source') == 'abn' else \
-                               "🔍 LaCale" if torrent.get('source') == 'lacale' else \
-                               "🔍 C411" if torrent.get('source') == 'c411' else \
-                               "🔍 Torr9" if torrent.get('source') == 'torr9' else \
-                               f"🔍 {clean_name}"
-                
-                size_str = format_size(torrent.get('size', 0))
-                meta = parse_torrent_name(torrent.get('name', ''))
-                
-                # Indicateur qBittorrent
-                title = f"📥 {meta['name']}\n{torrent.get('name')}\n💾 {size_str} [qBittorrent]"
-                
-                import urllib.parse
-                encoded_link = urllib.parse.quote(download_link, safe='')
-                
-                # On passe la config encodée pour avoir accès aux credentials qBittorrent
-                resolve_url = f"{host_url}/{config_str}/resolve/qbit/{clean_hash}?link={encoded_link}"
-                
-                if season is not None and episode is not None:
-                    resolve_url += f"&season={season}&episode={episode}"
-                elif stream_type == 'movie':
-                    resolve_url += "&type=movie"
-
-                streams.append({
-                    "name": f"Frenchio | 📥 qBittorrent\n{source_prefix}",
-                    "title": title,
-                    "url": resolve_url,
-                    "infoHash": clean_hash,
-                    "behaviorHints": {
-                        "filename": torrent.get('name', ''),
-                        "videoSize": torrent.get('size', 0),
-                        "bingeGroup": f"frenchio-{clean_hash}"
-                    },
-                })
-                qbit_added += 1
-            
-            logging.info(f"qBittorrent: Added {qbit_added} streams")
-
     logging.info(f"Returning {len(streams)} streams to Stremio")
     return web.json_response({"streams": streams})
 
@@ -820,76 +713,8 @@ async def handle_resolve(request):
     episode = request.query.get('episode')
     media_type = request.query.get('type')
     
-    # === MODE qBittorrent ===
-    if service_name == 'qbit':
-        download_link = request.query.get('link')
-        if not download_link:
-            return web.Response(status=400, text="Missing download link")
-        
-        # Décoder le lien
-        import urllib.parse
-        download_link = urllib.parse.unquote(download_link)
-        
-        # Récupérer la config qBittorrent
-        qbit_config = config.get('qbittorrent')
-        if not qbit_config:
-            return web.Response(status=400, text="qBittorrent not configured")
-        
-        qbit_service = QBittorrentService(
-            host=qbit_config['host'],
-            username=qbit_config.get('username', ''),
-            password=qbit_config.get('password', ''),
-            public_url_base=qbit_config['public_url']
-        )
-        
-        # Télécharger le .torrent
-        logging.info(f"Downloading torrent from: {download_link[:100]}...")
-        
-        # Vérifier si c'est un lien ABN qui nécessite une authentification
-        if 'abn.lol' in download_link or 'abnormal.ws' in download_link:
-            if config.get('abn_username') and config.get('abn_password'):
-                abn_service = ABNService(
-                    username=config.get('abn_username'),
-                    password=config.get('abn_password')
-                )
-                try:
-                    torrent_data = await abn_service.download_torrent(download_link)
-                    if not torrent_data:
-                        logging.error("Failed to download .torrent from ABN")
-                        return web.Response(status=502, text="Failed to download torrent file from ABN")
-                finally:
-                    await abn_service.close()
-            else:
-                logging.error("ABN credentials not configured")
-                return web.Response(status=400, text="ABN credentials required")
-        else:
-            # Téléchargement standard
-            async with aiohttp.ClientSession(trust_env=True) as session:
-                async with session.get(download_link) as resp:
-                    if resp.status != 200:
-                        logging.error(f"Failed to download .torrent: {resp.status}")
-                        return web.Response(status=502, text="Failed to download torrent file")
-                    torrent_data = await resp.read()
-        
-        logging.info(f"Downloaded {len(torrent_data)} bytes, adding to qBittorrent...")
-        
-        # Ajouter et configurer dans qBittorrent (synchrone avec la librairie officielle)
-        stream_url = qbit_service.manage_stream(
-            torrent_data, 
-            info_hash, 
-            is_file=True,
-            season=int(season) if season else None,
-            episode=int(episode) if episode else None
-        )
-        
-        if stream_url:
-            logging.info(f"qBittorrent stream ready: {stream_url}")
-            raise web.HTTPFound(stream_url)
-        else:
-            return web.Response(status=404, text="Could not start qBittorrent stream")
-    
     # === MODE AllDebrid ===
-    elif service_name == 'alldebrid':
+    if service_name == 'alldebrid':
         alldebrid_key = config.get('alldebrid_key')
         if not alldebrid_key:
             return web.Response(status=400, text="AllDebrid not configured")

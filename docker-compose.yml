@@ -13,8 +13,6 @@ services:
       # - HTTP_PROXY=http://proxy.example.com:8080
       # - HTTPS_PROXY=http://proxy.example.com:8080
       # - NO_PROXY=localhost,127.0.0.1
-      # Optional: Enable/disable qBittorrent support (default: true)
-      - QBITTORRENT_ENABLE=true
       # Optional: Customize manifest title (e.g., "| ElfHosted")
       # - MANIFEST_TITLE_SUFFIX=| ElfHosted
       # Optional: Add custom HTML/markup blurb to manifest description
@@ -27,22 +25,4 @@ services:
       retries: 3
       start_period: 5s
 
-  # Optional: Add qBittorrent service for local streaming
-  # Uncomment if you want qBittorrent in the same stack
-  # qbittorrent:
-  #   image: linuxserver/qbittorrent:latest
-  #   container_name: qbittorrent
-  #   environment:
-  #     - PUID=1000
-  #     - PGID=1000
-  #     - TZ=Europe/Paris
-  #     - WEBUI_PORT=8080
-  #   volumes:
-  #     - ./qbittorrent/config:/config
-  #     - ./qbittorrent/downloads:/downloads
-  #   ports:
-  #     - "8080:8080"
-  #     - "6881:6881"
-  #     - "6881:6881/udp"
-  #   restart: unless-stopped
 

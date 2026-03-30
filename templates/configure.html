@@ -446,10 +446,7 @@
                 <span class="title-text">Frenchio</span>
                 <span class="version-badge" id="versionBadge"></span>
             </h1>
-            <div class="subtitle">Streamer depuis UNIT3D, Sharewood, YGG, ABN, La-Cale, C411 & Torr9 via AllDebrid,
-                TorBox,
-                Debrid-Link ou
-                qBittorrent</div>
+            <div class="subtitle">Streamer depuis UNIT3D, Sharewood, YGG, ABN, La-Cale, C411 & Torr9 via AllDebrid, TorBox ou Debrid-Link</div>
         </header>
 
         <!-- Blurb personnalisé (caché par défaut) -->
@@ -486,10 +483,6 @@
             <div class="form-group">
                 <label>Service de débridage <span class="badge">Optionnel</span></label>
                 <div style="margin-bottom: 15px;">
-                    <label id="debridNoneLabel" class="option-tile">
-                        <input type="radio" name="debridService" value="none" id="debridNone" checked>
-                        <span>Aucun (qBittorrent seulement)</span>
-                    </label>
                     <label class="option-tile">
                         <input type="radio" name="debridService" value="alldebrid" id="debridAlldebrid">
                         <span>AllDebrid</span>
@@ -535,39 +528,6 @@
                 <input type="text" id="realdebridKey" placeholder="Ex: abc123...">
                 <span class="help-text">Alternative à AllDebrid. <a href="https://real-debrid.com/apitoken"
                         target="_blank">Obtenir ma clé</a></span>
-            </div>
-        </div>
-
-        <!-- Optionnel: qBittorrent -->
-        <div class="card" id="qbittorrentSection">
-            <div class="card-header">
-                <h2>📥 Client Torrent (qBittorrent) <span class="badge">Optionnel</span></h2>
-            </div>
-            <p class="help-text">
-                Alternative à AllDebrid : téléchargez directement sur votre serveur/NAS.
-                Nécessite un serveur Web (Nginx/Apache) qui expose le dossier de téléchargement.
-            </p>
-
-            <div class="form-group">
-                <label for="qbitUrl">URL qBittorrent (WebUI)</label>
-                <input type="url" id="qbitUrl" placeholder="http://192.168.1.50:8080">
-            </div>
-
-            <div style="display: flex; gap: 15px;">
-                <div class="form-group" style="flex: 1;">
-                    <label for="qbitUser">Utilisateur</label>
-                    <input type="text" id="qbitUser" placeholder="admin">
-                </div>
-                <div class="form-group" style="flex: 1;">
-                    <label for="qbitPass">Mot de passe</label>
-                    <input type="password" id="qbitPass">
-                </div>
-            </div>
-
-            <div class="form-group">
-                <label for="qbitPublicUrl">URL Publique des Fichiers</label>
-                <input type="url" id="qbitPublicUrl" placeholder="http://monserveur.com/downloads">
-                <span class="help-text">L'adresse HTTP où Stremio pourra lire les fichiers téléchargés.</span>
             </div>
         </div>
 
@@ -933,7 +893,6 @@
 
         // Placeholders remplacés par le serveur
         const prefillConfig = {};
-        const qbittorrentEnabled = true;
         const manifestBlurb = "";
         const appVersion = "1.1.0";
 
@@ -1031,14 +990,6 @@
 
             updateDebridFields();
 
-            // qBit
-            if (prefillConfig.qbittorrent) {
-                document.getElementById('qbitUrl').value = prefillConfig.qbittorrent.host || '';
-                document.getElementById('qbitUser').value = prefillConfig.qbittorrent.username || '';
-                document.getElementById('qbitPass').value = prefillConfig.qbittorrent.password || '';
-                document.getElementById('qbitPublicUrl').value = prefillConfig.qbittorrent.public_url || '';
-            }
-
             document.getElementById('sharewoodPasskey').value = prefillConfig.sharewood_passkey || '';
             // YGG passkey removed
             document.getElementById('abnUsername').value = prefillConfig.abn_username || '';
@@ -1086,26 +1037,6 @@
             addTracker();
         }
 
-        // Masquer la section qBittorrent si désactivée côté serveur
-        if (!qbittorrentEnabled) {
-            const qbitSection = document.getElementById('qbittorrentSection');
-            if (qbitSection) {
-                qbitSection.style.display = 'none';
-            }
-
-            // Masquer l'option "Aucun (qBittorrent seulement)"
-            const debridNoneLabel = document.getElementById('debridNoneLabel');
-            if (debridNoneLabel) {
-                debridNoneLabel.style.display = 'none';
-            }
-
-            // Si "Aucun" était sélectionné, sélectionner AllDebrid par défaut
-            const debridNone = document.getElementById('debridNone');
-            if (debridNone && debridNone.checked) {
-                document.getElementById('debridAlldebrid').checked = true;
-                updateDebridFields();
-            }
-        }
 
         // Afficher le blurb personnalisé si configuré
         // Afficher la version
@@ -1168,14 +1099,6 @@
                 }
             }
 
-            // qBit Config
-            const qbitUrl = document.getElementById('qbitUrl').value.trim();
-            const qbitUser = document.getElementById('qbitUser').value.trim();
-            const qbitPass = document.getElementById('qbitPass').value.trim();
-            const qbitPublicUrl = document.getElementById('qbitPublicUrl').value.trim();
-
-            const hasQbit = qbitUrl && qbitPublicUrl;
-
             const sharewoodPasskey = document.getElementById('sharewoodPasskey').value.trim();
             // YGG est toujours inclus sans passkey
             const abnUsername = document.getElementById('abnUsername').value.trim();
@@ -1191,13 +1114,8 @@
                 return;
             }
 
-            if (selectedDebrid === 'none' && !qbittorrentEnabled) {
-                alert("Erreur : qBittorrent est désactivé sur ce serveur. Vous devez configurer un service de débridage (AllDebrid, TorBox, Debrid-Link ou Real-Debrid).");
-                return;
-            }
-
-            if (selectedDebrid === 'none' && !hasQbit) {
-                alert("Erreur : Vous devez configurer soit un service de débridage (AllDebrid/TorBox/Debrid-Link/Real-Debrid), soit qBittorrent.");
+            if (selectedDebrid === 'none') {
+                alert("Erreur : Vous devez configurer un service de débridage (AllDebrid, TorBox, Debrid-Link ou Real-Debrid).");
                 return;
             }
 
@@ -1241,12 +1159,6 @@
                 max_size: maxSize,
                 sort_by: sortBy,
                 providers_order: providersOrder,
-                qbittorrent: hasQbit ? {
-                    host: qbitUrl,
-                    username: qbitUser,
-                    password: qbitPass,
-                    public_url: qbitPublicUrl
-                } : null
             };
 
             const configStr = JSON.stringify(config);
