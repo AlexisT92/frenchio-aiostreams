@@ -659,19 +659,21 @@ async def handle_stream(request):
         else:
             clean_name = raw_tracker
 
-        source_prefix = " | 🔍 Sharewood" if torrent.get('source') == 'sharewood' else \
-                       " | 🔍 YGG" if torrent.get('source') == 'ygg' else \
-                       " | 🔍 ABN" if torrent.get('source') == 'abn' else \
-                       " | 🔍 LaCale" if torrent.get('source') == 'lacale' else \
-                       " | 🔍 C411" if torrent.get('source') == 'c411' else \
-                       " | 🔍 Torr9" if torrent.get('source') == 'torr9' else \
-                       f" | 🔍 {clean_name}"
-        
+        source_label = "Sharewood" if torrent.get('source') == 'sharewood' else \
+                       "YGG"       if torrent.get('source') == 'ygg' else \
+                       "ABN"       if torrent.get('source') == 'abn' else \
+                       "LaCale"    if torrent.get('source') == 'lacale' else \
+                       "C411"      if torrent.get('source') == 'c411' else \
+                       "Torr9"     if torrent.get('source') == 'torr9' else \
+                       clean_name
+
+        source_prefix = f" | 🔍 {source_label}"
+
         size_str = format_size(torrent.get('size', 0))
         meta = parse_torrent_name(torrent.get('name', ''))
-        
+
         provider_emoji = "⚡"  # Éclair pour tous les services de débridage
-        title = f"{provider_emoji} {meta['name']}\n{torrent.get('name')}\n💾 {size_str}"
+        title = f"🔍 {source_label} | {provider_emoji} {meta['name']}\n{torrent.get('name')}\n💾 {size_str}"
         
         # URL de résolution (utilise le provider configuré)
         resolve_url = f"{host_url}/{config_str}/resolve/{debrid_provider}/{clean_hash}"
