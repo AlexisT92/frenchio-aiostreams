@@ -96,7 +96,7 @@ def format_size(size_bytes):
         return "0 B"
 
     if size >= 1024**3:
-        return f"{size / (1024**3):.2f} Go"
+        return f"{size / (1024**3):.2f} GB"
     elif size >= 1024**2:
         return f"{size / (1024**2):.2f} Mo"
     else:
